@@ -1,47 +1,59 @@
 import socket
 import sys 
 import argparse
-
+import ipaddress
 def checkargs():
     parser = argparse.ArgumentParser()
-
+    
+    parser.add_argument("host")
+    parser.add_argument("port_range", nargs=2, type=int)
     parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument("--timeout", nargs="?", default=1)
     return parser.parse_args()
 
-def port_scan(verbose=False):
-        host = input("Enter an IP address: ").strip()
-        start_port = int(input("Enter the starting port number: "))
-        end_port = int(input("Enter the ending port number: "))
-        
-        if start_port < 1 or  end_port > 65535 or start_port > end_port:
-            print("Invalid port range. Please enter a range between 1 and 65535.")
-            return
-        open_ports = 0
-        closed_ports = 0
+def print_output(host, open_ports, port_range, verbose=False):
+    print(f"Scanned {host} from port {port_range[0]} to {port_range[1]}...")
+    
 
-        print(f"Scanning {host} from port {start_port} to {end_port}...")
-        for port in range(start_port, end_port+1):
+    if verbose:
+        for port in range(port_range[0], port_range[1]+1):
+            if port in open_ports:
+                print(f"{port} Opened!")
+            else:
+                print(f"{port} Closed!")
+        print(f"Total scanned ports: {port_range[0] + port_range[1]}")
+        print(f"Ports opened: {len(open_ports)} | Ports closed: {(port_range[0]+port_range[1])-len(open_ports)}")
+    else:
+        for port in open_ports:
+            print(f"{port} Opened!")
+
+def port_scan(host, port_range, timeout):
+        try:
+            ipaddress.ip_address(host)
+            if port_range[0] < 1 or  port_range[1] > 65535 or port_range[0] > port_range[1]:
+                raise ValueError()
+        except ValueError:
+            print("Invalid host or port range!")
+            return
+        
+        opened_ports = []
+        for port in range(port_range[0], port_range[1]+1):
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                    sock.settimeout(1)
+                    sock.settimeout(timeout)
                     sock.connect((host, port))
-                    print(f"{port} opened!")
-                    open_ports += 1
+                    opened_ports.append(port)
             except socket.error:
-                if verbose:
-                    print(f"{port} closed")
-                closed_ports += 1
+                pass
             except KeyboardInterrupt:
                 print("Scan interrupted!")
                 break
-        if verbose:
-            print(f"Total scanned ports: {open_ports + closed_ports}")
-            print(f"Ports opened: {open_ports} | Ports closed: {closed_ports}")
+        return opened_ports
 def main():
     
     args = checkargs()
-    port_scan(verbose=args.verbose)
-
+    opened_ports = port_scan(args.host, args.port_range, args.timeout)
+    print_output(args.host, opened_ports, args.port_range, verbose=args.verbose)
 
 if __name__ == "__main__":
     main()
