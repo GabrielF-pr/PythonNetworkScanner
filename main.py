@@ -2,6 +2,10 @@ import socket
 import sys 
 import argparse
 import ipaddress
+
+PORT_MIN, PORT_MAX = 1, 65535
+TIMEOUT_MIN, TIMEOUT_MAX = 0.1, 10.0
+
 def checkargs():
 
     parser = argparse.ArgumentParser()
@@ -22,15 +26,36 @@ def checkargs():
         print(f"Error: '{args.host}' is neither a valid IP address nor a resolvable domain name!")
         sys.exit()
     
-    if args.port_range[0] < 1 or args.port_range[1] > 65535 or args.port_range[0] > args.port_range[1]:
+    if args.port_range[0] < PORT_MIN or args.port_range[1] > PORT_MAX or args.port_range[0] > args.port_range[1]:
             print("Invalid port range! Must be within 1 to 65535, with start <= end.")
             sys.exit()
     
-    if not (0.1 <= args.timeout <= 10.0):
+    if not (TIMEOUT_MIN <= args.timeout <= TIMEOUT_MAX):
         print("Invalid timeout! Must be between 0.1 and 10 seconds. Using default: 1.0 seconds.")
         args.timeout = 1.0
     
     return args
+
+def format_ports(ports):
+    ports = list(ports)
+    ranges = []
+    start = ports[0]
+
+    for i in range(1, len(ports)):
+        if ports[i] != ports[i-1]+1:
+            end = ports[i-1]
+            if start == end:
+                ranges.append(f"{start}")
+            else:
+                ranges.append(f"{start}-{end}")
+            start = ports[i]
+    
+    if start == ports[-1]:
+        ranges.append(f"{start}")
+    else:
+        ranges.append(f"{start}-{ports[-1]}")
+
+    return ", ".join(ranges)
 
 def print_output(host, ports, port_range, verbose=False):
 
@@ -46,7 +71,7 @@ def print_output(host, ports, port_range, verbose=False):
     
     if verbose:
         if closed_ports:
-            print(f"\033[91mClosed\033[00m ports: {', '.join(map(str, sorted(ports[1])))}")
+            print(f"\033[91mClosed\033[00m ports: {format_ports(ports[1])}")
         else:
             print(f"No ports are closed.")
     print(f"Total scanned ports: {total_ports}")
