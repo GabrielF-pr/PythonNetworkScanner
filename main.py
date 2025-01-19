@@ -64,7 +64,7 @@ def print_output(host, ports, port_range, verbose=False):
     opened_ports, closed_ports = len(ports[0]), len(ports[1])
     total_ports = opened_ports + closed_ports
     if opened_ports:
-        print(f"\033[32mOpened\033[00m ports: {', '.join(map(str, sorted(ports[0])))}")
+        print(f"\033[32mOpened\033[00m ports: {format_ports(ports[0])}")
     else:
         print(f"No open ports found on {host} in the range {port_range[0]}-{port_range[1]}.")
         return
@@ -89,9 +89,13 @@ def port_scan(host, port_range, timeout):
                         opened_ports.add(port)
                 except socket.error:
                      closed_ports.add(port)
+                print(f"Scanning {port}", end="")
+                print("\r", end = "")
+                print("\033[2K", end="")
         except KeyboardInterrupt:
             print("\nScan interrupted by user. Displaying partial results...")
         return [opened_ports, closed_ports]
+
 def main():
     try: 
         args = checkargs()
