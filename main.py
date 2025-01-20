@@ -80,8 +80,11 @@ def print_output(host, ports, port_range, verbose=False):
 def port_scan(host, port_range, timeout):
         opened_ports = set()
         closed_ports = set()
+
+        total_ports = port_range[1] - port_range[0] + 1
+
         try:
-            for port in range(port_range[0], port_range[1]+1):
+            for i , port in enumerate(range(port_range[0], port_range[1]+1), 1):
                 try:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                         sock.settimeout(timeout)
@@ -89,9 +92,8 @@ def port_scan(host, port_range, timeout):
                         opened_ports.add(port)
                 except socket.error:
                      closed_ports.add(port)
-                print(f"Scanning {port}", end="")
-                print("\r", end = "")
-                print("\033[2K", end="")
+                percentage = (i / total_ports) * 100
+                print(f"Scanning {port} ({percentage:.2f})%", end="\r")
         except KeyboardInterrupt:
             print("\nScan interrupted by user. Displaying partial results...")
         return [opened_ports, closed_ports]
