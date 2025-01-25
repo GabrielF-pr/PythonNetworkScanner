@@ -2,6 +2,7 @@ import socket
 import sys 
 import argparse
 import ipaddress
+import re
 
 PORT_MIN, PORT_MAX = 1, 65535
 TIMEOUT_MIN, TIMEOUT_MAX = 0.1, 10.0
@@ -16,9 +17,14 @@ def checkargs():
     parser.add_argument("--timeout", nargs="?", default=1, type=float, help="Timeout in seconds (default: 1)")
     
     args = parser.parse_args()
+
     try:
-        args.host = socket.gethostbyname(args.host)
-        ipaddress.ip_address(args.host)
+        if re.search("(\d{1,3}.){3}(\d{1,3})", args.host): 
+            ipaddress.ip_address(args.host)
+        else:
+            print(f"Scanning host: {args.host} (resolved IP: {socket.gethostbyname(args.host)})")
+            args.host = socket.gethostbyname(args.host)
+
     except ValueError:
         print(f"Invalid IP address or domain name: '{args.host}'")
         sys.exit()
@@ -93,7 +99,8 @@ def port_scan(host, port_range, timeout):
                 except socket.error:
                      closed_ports.add(port)
                 percentage = (i / total_ports) * 100
-                print(f"Scanning {port} ({percentage:.2f})%", end="\r")
+                filled_width = int((i/total_ports)*25)
+                print("[" + "#" * filled_width + " " * (25 - filled_width) + "]" + "%.2f" % percentage + "%", end="\r")
         except KeyboardInterrupt:
             print("\nScan interrupted by user. Displaying partial results...")
         return [opened_ports, closed_ports]
