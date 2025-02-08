@@ -3,6 +3,7 @@ import sys
 import argparse
 import ipaddress
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 PORT_MIN, PORT_MAX = 1, 65535
 TIMEOUT_MIN, TIMEOUT_MAX = 0.1, 10.0
@@ -83,32 +84,38 @@ def print_output(host, ports, port_range, verbose=False):
     print(f"Total scanned ports: {total_ports}")
     print(f"Ports opened: {opened_ports} | Ports closed: {closed_ports}")
 
-def port_scan(host, port_range, timeout):
-        opened_ports = set()
-        closed_ports = set()
-
-        total_ports = port_range[1] - port_range[0] + 1
+def port_scan(host, port, timeout):
 
         try:
-            for i , port in enumerate(range(port_range[0], port_range[1]+1), 1):
-                try:
-                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                        sock.settimeout(timeout)
-                        sock.connect((host, port))
-                        opened_ports.add(port)
-                except socket.error:
-                     closed_ports.add(port)
-                percentage = (i / total_ports) * 100
-                filled_width = int((i/total_ports)*25)
-                print("[" + "#" * filled_width + " " * (25 - filled_width) + "]" + "%.2f" % percentage + "%", end="\r")
-        except KeyboardInterrupt:
-            print("\nScan interrupted by user. Displaying partial results...")
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(timeout)
+                sock.connect((host, port))
+                return (port, 0)
+        except socket.error:
+            return (0, port)
+        
+        return [opened_ports, closed_ports]
+
+def thread_init(host, port_range, timeout):
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        args = ((host, port, timeout)for port in range(port_range[0], port_range[1]+1))
+
+        result = executor.map(lambda p: port_scan(*p), args)
+        
+        opened_ports = list()
+        closed_ports = list()
+
+        for res in result:
+            if res[0]:
+                opened_ports.append(res[0])
+            else:
+                closed_ports.append(res[1])
         return [opened_ports, closed_ports]
 
 def main():
     try: 
         args = checkargs()
-        opened_ports = port_scan(args.host, args.port_range, args.timeout)
+        opened_ports = thread_init(args.host, args.port_range, args.timeout)
         print_output(args.host, opened_ports, args.port_range, verbose=args.verbose)
     except KeyboardInterrupt:
         print("\nOperation canceled by the user.")
