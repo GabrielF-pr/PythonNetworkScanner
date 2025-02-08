@@ -4,7 +4,7 @@ import argparse
 import ipaddress
 import re
 from concurrent.futures import ThreadPoolExecutor
-
+from concurrent.futures import as_completed
 PORT_MIN, PORT_MAX = 1, 65535
 TIMEOUT_MIN, TIMEOUT_MAX = 0.1, 10.0
 
@@ -93,24 +93,30 @@ def port_scan(host, port, timeout):
                 return (port, 0)
         except socket.error:
             return (0, port)
-        
-        return [opened_ports, closed_ports]
-
+        except socket.gaierror:
+            print("Host is unreacheable!")
+            sys.exit()
 def thread_init(host, port_range, timeout):
-    with ThreadPoolExecutor(max_workers=4) as executor:
-        args = ((host, port, timeout)for port in range(port_range[0], port_range[1]+1))
 
-        result = executor.map(lambda p: port_scan(*p), args)
+    total_ports = port_range[1] - port_range[0] + 1
+
+    with ThreadPoolExecutor(max_workers=min(100, total_ports)) as executor:
+
+        futures = [executor.submit(lambda p: port_scan(*p), (host,port,timeout)) for port in range(port_range[0],port_range[1]+1)]
         
         opened_ports = list()
         closed_ports = list()
 
-        for res in result:
+        for i, future in enumerate(as_completed(futures),1):
+            res = future.result()
             if res[0]:
                 opened_ports.append(res[0])
             else:
                 closed_ports.append(res[1])
-        return [opened_ports, closed_ports]
+            percentage = (i/total_ports) * 100
+            filled_width = int((i/total_ports)*25)
+            print("[" + "#" * filled_width + " " * (25 - filled_width) + "]" + "%.2f" % percentage + "%", end="\r")
+        return [opened_ports, sorted(closed_ports)]
 
 def main():
     try: 
