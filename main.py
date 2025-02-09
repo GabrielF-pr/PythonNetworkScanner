@@ -94,15 +94,16 @@ def port_scan(host, port, timeout):
         except socket.error:
             return (0, port)
         except socket.gaierror:
-            print("Host is unreacheable!")
+            print("Host is unreachable!")
             sys.exit()
+
 def thread_init(host, port_range, timeout):
 
     total_ports = port_range[1] - port_range[0] + 1
 
     with ThreadPoolExecutor(max_workers=min(100, total_ports)) as executor:
 
-        futures = [executor.submit(lambda p: port_scan(*p), (host,port,timeout)) for port in range(port_range[0],port_range[1]+1)]
+        futures = [executor.submit(port_scan, host,port,timeout) for port in range(port_range[0],port_range[1]+1)]
         
         opened_ports = list()
         closed_ports = list()
